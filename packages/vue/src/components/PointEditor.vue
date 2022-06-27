@@ -3,7 +3,7 @@
     :class="{
       'bg-error-light': !isValidIndex,
       'bg-accent-light': mouseIsOver,
-      'bg-white': isValidIndex && !mouseIsOver,
+      'bg-white/60': isValidIndex && !mouseIsOver,
     }"
     class="flex items-center border-gray-400 focus-within:ring rounded-md ring-accent-mid z-10 relative"
   >
@@ -48,7 +48,7 @@
       }"
       class="flex items-center border-l-2 h-full z-0 focus:outline-none focus:bg-error-light/50 px-3 rounded-r-md text-gray-500 hover:text-error-dark focus:text-error-dark"
     >
-      <FAIcon icon="x" class="h-3" />
+      <FAIcon icon="times" class="h-3" />
     </button>
   </label>
 </template>

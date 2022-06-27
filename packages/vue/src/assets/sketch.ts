@@ -13,6 +13,18 @@ interface SketchThunkOpts {
   doSpaceEvenly?: boolean
   emit?: Function
 }
+interface EachXFN {
+  xCoord: number
+  x: number
+  index: number
+}
+interface EachYFN {
+  yCoord: number
+  y: number
+  index: number
+}
+type EachFn<T> = (params: T) => void
+
 export default ({
   spline,
   points,
@@ -63,9 +75,10 @@ export default ({
     function sizeContainer() {
       const container = document.getElementById('sketch')
       const containerBoundingRect = container?.getBoundingClientRect()
+      const containerParentBoundingRect = (container?.parentElement as Element).getBoundingClientRect()
       const minDimension = Math.min(
         containerBoundingRect?.width ?? 500,
-        containerBoundingRect?.height ?? 500
+        containerParentBoundingRect?.height ?? 500
       )
       maxX = minDimension
       maxY = minDimension
@@ -84,6 +97,7 @@ export default ({
       canvas.parent('sketch')
       canvas.class('m-auto border-2 border-gray-200 bg-white')
       p.textAlign(p.CENTER, p.CENTER)
+      p.textSize(12)
       translateCoordinateSystem()
       p.background(255)
       drawGraph(points)
@@ -96,9 +110,10 @@ export default ({
       if (maxX !== maxXBefore || maxY != maxYBefore) {
         setTimeout(() => {
           p.resizeCanvas(maxX, maxY)
-          drawGraph(points)
           axesPosition.x.max = p.width
           axesPosition.y.max = p.height
+          translateCoordinateSystem()
+          reset()
         })
       }
     }
@@ -206,46 +221,70 @@ export default ({
       p.endShape()
     }
 
-    function drawGridLines(strokeWeight = 1, spacing = 50, labelFrequency = 2) {
+    function _useGridlines(spacing=50, { eachX, eachY }: { eachX: EachFn<EachXFN>, eachY: EachFn<EachYFN>}) {
       const numLines = {
         x: Math.floor(p.height / spacing),
         y: Math.floor(p.width / spacing),
       }
       p.stroke(245)
-      p.strokeWeight(strokeWeight)
-      p.beginShape(p.LINES)
       for (let i = 0; i <= numLines.x; i++) {
         const yCoord = p.map(i * spacing + getY(0), 0 + getY(0), numLines.x * spacing + getY(0), bounds().y.min, bounds().y.max)
         const y = getY(yCoord)
-        p.vertex(getX(-axesPosition.x.max / 2), y)
-        p.vertex(getX(axesPosition.x.max / 2), y)
-        if (i % labelFrequency === 1) {
-          p.push()
-          p.translate(-axesPosition.x.max / 2 + canvasPadding / 4, y)
-          p.scale(1, -1)
-            p.textSize(12)
-            p.text(Math.floor(yCoord).toString(), 0, 0)
-            p.pop()
-        }
+        eachY({yCoord, y, index: i})
       }
       for (let i = 0; i <= numLines.x; i++) {
         const xCoord = p.map(i * spacing + getX(0), getX(0), numLines.y * spacing + getX(0), bounds().x.min, bounds().x.max)
         const x = getX(xCoord)
-        p.vertex(x, getY(-axesPosition.y.max / 2))
-        p.vertex(x, getY(axesPosition.y.max / 2))
-        if (i % labelFrequency === 1) {
-        p.push()
-        p.scale(1, -1)
-          p.textSize(12)
-          p.text(Math.floor(xCoord).toString(), x, axesPosition.y.max / 2 - canvasPadding / 4)
+        eachX({xCoord, x, index: i})
+      }
+    }
+
+    function drawGridLines(strokeWeight = 1, spacing = 50) {
+      p.stroke(245)
+      p.strokeWeight(strokeWeight)
+      p.beginShape(p.LINES)
+      _useGridlines(spacing, {
+        eachX({ x }) {
+          p.vertex(x, getY(-axesPosition.y.max / 2))
+          p.vertex(x, getY(axesPosition.y.max / 2))
+        },
+        eachY({ y }) {
+          p.vertex(getX(-axesPosition.x.max / 2), y!)
+          p.vertex(getX(axesPosition.x.max / 2), y!)
+        },
+      })
+      p.endShape()
+    }
+    
+    function drawGridLineLabels(spacing = 50, labelFrequency = 2) {
+      function placeLabel(tickValue: number, tickPosition: number, gridLineIndex: number, axis: 'x' | 'y') {
+        if (gridLineIndex % labelFrequency === 1) {
+          p.push()
+          if(axis === 'y') {
+            p.translate(-axesPosition.x.max / 2 + canvasPadding / 4, tickPosition)
+          }
+          p.scale(1, -1)
+          if(axis === 'y') {
+            p.text(Math.floor(tickValue).toString(), 0, 0)
+          } else {
+            p.text(Math.floor(tickValue).toString(), tickPosition, axesPosition.y.max / 2 - canvasPadding / 4)
+          }
           p.pop()
         }
       }
-      p.endShape()
+      _useGridlines(spacing, {
+        eachX({ x, xCoord, index }) {
+          placeLabel(xCoord, x, index, 'x')
+        },
+        eachY({ y, yCoord, index }) {
+          placeLabel(yCoord, y, index, 'y')
+        },
+      })
     }
 
     function drawGraph(points: Point[]) {
       drawGridLines()
+      drawGridLineLabels()
       drawAxes()
       drawLines(createSampledPoints())
       drawPoints(points)
@@ -257,7 +296,6 @@ export default ({
     }
 
     window.addEventListener('resetsketch', (e: any) => {
-      console.log('SHOULD RESET', e)
       points = e.detail.points
       spline = e.detail.spline
       numSamples = e.detail.numSamples

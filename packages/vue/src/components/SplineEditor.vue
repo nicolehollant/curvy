@@ -1,6 +1,6 @@
 <template>
   <h3 class="text-xs font-semibold uppercase text-gray-500 tracking-wide">Points</h3>
-  <div class="mt-1 grid gap-1 w-full">
+  <div class="mt-1 grid gap-2 w-full">
     <PointEditor
       class="flex items-center gap-4"
       v-for="(point, i) in modelValue"
